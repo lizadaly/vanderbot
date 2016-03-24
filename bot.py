@@ -8,6 +8,7 @@ import tempfile
 import os.path
 import re
 import shutil
+import pprint
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from colormath.color_diff import delta_e_cie2000
@@ -105,6 +106,9 @@ def identify_colors(tile_dir, colors_to_match):
 
     return matches
 
+def rotate_randomly(im):
+    return im.rotate(random.choice([0, 90, 180, 360]))    
+    
 def build_grid(matches):
     """Build a 10x10 grid of the resulting colors"""
     random.shuffle(matches)
@@ -122,24 +126,24 @@ def build_grid(matches):
             tiles.append(matches[index][0])
     print("Created an array of {} tiles".format(len(tiles)))
     print(set(tiles))
-    card = Image.new('RGB', (GRID_WIDTH * TILE_WIDTH, GRID_HEIGHT * TILE_WIDTH), color=(255,255,255))
+    grid_img = Image.new('RGB', (GRID_WIDTH * TILE_WIDTH, GRID_HEIGHT * TILE_WIDTH), color=(255,255,255))
     for row in range(0, GRID_WIDTH):
         for col in range(0, GRID_HEIGHT):
             tile = tiles[-1]
             im = Image.open(tile)
-            im = im.rotate(random.choice([0, 90, 180, 360]))
-            card.paste(im, box=(row * TILE_WIDTH, col * TILE_WIDTH))
+            im = rotate_randomly(im)
+            grid_img.paste(im, box=(row * TILE_WIDTH, col * TILE_WIDTH))
             if len(tiles) > 1:
                 tiles.pop()
-            
-    card.save('out.png')
+    grid_img = rotate_randomly(grid_img)
+    grid_img.save('out.png')
     
 if __name__ == '__main__':
     api = _auth()
 
     input_image = sys.argv[1]
     
-    colors = colorz(input_image, n=10)
+    colors = colorz(input_image, n=5)
     colors_lab = [(convert_color(sRGBColor(*c[0], is_upscaled=True), LabColor), c[1]) for c in colors]
 
     matches = identify_colors('tiles', colors_lab)
