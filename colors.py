@@ -1,3 +1,4 @@
+from colormath.color_objects import sRGBColor, LabColor
 from collections import namedtuple
 from math import sqrt
 import random
@@ -16,7 +17,7 @@ def get_points(img):
         points.append(Point(color, 3, count))
     return points
 
-rtoh = lambda rgb: '#%s' % ''.join(('%02x' % p for p in rgb))
+rtoh = lambda rgb: '#%s' % ''.join(('%02x' % p[0] for p in rgb))
 
 def colorz(filename, n=3):
     img = Image.open(filename)
@@ -25,8 +26,8 @@ def colorz(filename, n=3):
 
     points = get_points(img)
     clusters = kmeans(points, n, 1)
-    rgbs = [map(int, c.center.coords) for c in clusters]
-    return map(rtoh, rgbs)
+    rgbs = [(c.center.coords, len(c.points)) for c in clusters]
+    return rgbs
 
 def euclidean(p1, p2):
     return sqrt(sum([

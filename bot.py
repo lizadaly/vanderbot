@@ -20,8 +20,9 @@ from config import *
 from colors import *
 from utils import *
 
-plaintext_re = re.compile(r'^[A-Za-z ]*$')
-
+GRID_WIDTH = 10
+GRID_HEIGHT = 10
+TILE_WIDTH = 60
 
 def _auth():
     """Authorize the service with Twitter"""
@@ -78,36 +79,74 @@ def build_color_map(tile_dir):
         _file = tile_dir + '/' + filename
         primary = colorz(_file, n=1)
         for m in primary:
-            c = sRGBColor.new_from_rgb_hex(m)
+            c = sRGBColor(*m[0], is_upscaled=True)
             lab_c = convert_color(c, LabColor)
             color_map[_file] = lab_c
     return color_map
+
 def identify_colors(tile_dir, colors_to_match):
     matches = []
     print("Building color map...")
     color_map = build_color_map(tile_dir)
     print("Comparing {} color map values...".format(len(color_map)))
     for c2 in colors_to_match:
+        color = c2[0]
+        freq = c2[1]
         best_match = None
-        best_match_value = 0.0
+        best_match_value = 1000.0
         for c1 in color_map:
-            delta_e = delta_e_cie2000(color_map[c1], c2)
-            if delta_e > best_match_value:
+            delta_e = delta_e_cie2000(color_map[c1], color)
+            if delta_e < best_match_value:
                 best_match_value = delta_e
                 best_match = c1
-        matches.append(best_match)
+        matches.append((best_match, freq))
+        del color_map[best_match]
+
 
     return matches
 
+def build_grid(matches):
+    """Build a 10x10 grid of the resulting colors"""
+    random.shuffle(matches)
+    total_points = sum([int(p[1]) for p in matches])
+    allocations = []
+    for m in matches:
+        alloc = int(m[1] / total_points * 100)
+        if alloc > 0:
+            allocations.append(alloc)
+    print(allocations)
+    tiles = []
+    for index, al in enumerate(allocations):
+        for i in range(0, al):
+#            print("Appending {} to tileset".format(matches[index][0]))
+            tiles.append(matches[index][0])
+    print("Created an array of {} tiles".format(len(tiles)))
+    print(set(tiles))
+    card = Image.new('RGB', (GRID_WIDTH * TILE_WIDTH, GRID_HEIGHT * TILE_WIDTH), color=(255,255,255))
+    for row in range(0, GRID_WIDTH):
+        for col in range(0, GRID_HEIGHT):
+            tile = tiles[-1]
+            im = Image.open(tile)
+            im = im.rotate(random.choice([0, 90, 180, 360]))
+            card.paste(im, box=(row * TILE_WIDTH, col * TILE_WIDTH))
+            if len(tiles) > 1:
+                tiles.pop()
+            
+    card.save('out.png')
+    
 if __name__ == '__main__':
     api = _auth()
-    colors = [x for x in colorz('images/googlelogo.png', n=4)]
-    print(colors)
-    colors_lab = [convert_color(sRGBColor.new_from_rgb_hex(c), LabColor) for c in colors]
+
+    input_image = sys.argv[1]
+    
+    colors = colorz(input_image, n=10)
+    colors_lab = [(convert_color(sRGBColor(*c[0], is_upscaled=True), LabColor), c[1]) for c in colors]
+
     matches = identify_colors('tiles', colors_lab)
-    for m in matches:
-        print('open ' + m)
-        
+    print("Found {} matches".format(len(matches)))
+    
+    build_grid(matches)
+    
 #    tweet = search(word, api)
 #    if tweet:
 #        tweet = '“' + tweet + '”'
