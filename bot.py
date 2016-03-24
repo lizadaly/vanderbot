@@ -8,6 +8,9 @@ import tempfile
 import os.path
 import re
 import shutil
+from colormath.color_objects import sRGBColor, LabColor
+from colormath.color_conversions import convert_color
+from colormath.color_diff import delta_e_cie2000
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -69,19 +72,42 @@ def generate_image(tweet, author):
                    font=font)
     return card
 
-def identify_colors(tile_dir):
+def build_color_map(tile_dir):
+    color_map = {}
     for filename in os.listdir(tile_dir):
         _file = tile_dir + '/' + filename
-        primary = colorz(_file)
+        primary = colorz(_file, n=1)
         for m in primary:
-            shutil.copy(_file, m.replace('#', '') + '.png')
+            c = sRGBColor.new_from_rgb_hex(m)
+            lab_c = convert_color(c, LabColor)
+            color_map[_file] = lab_c
+    return color_map
+def identify_colors(tile_dir, colors_to_match):
+    matches = []
+    print("Building color map...")
+    color_map = build_color_map(tile_dir)
+    print("Comparing {} color map values...".format(len(color_map)))
+    for c2 in colors_to_match:
+        best_match = None
+        best_match_value = 0.0
+        for c1 in color_map:
+            delta_e = delta_e_cie2000(color_map[c1], c2)
+            if delta_e > best_match_value:
+                best_match_value = delta_e
+                best_match = c1
+        matches.append(best_match)
 
-    
+    return matches
+
 if __name__ == '__main__':
     api = _auth()
-    colors = colorz('images/googlelogo.png')
-    identify_colors('tiles')
-    
+    colors = [x for x in colorz('images/googlelogo.png', n=4)]
+    print(colors)
+    colors_lab = [convert_color(sRGBColor.new_from_rgb_hex(c), LabColor) for c in colors]
+    matches = identify_colors('tiles', colors_lab)
+    for m in matches:
+        print('open ' + m)
+        
 #    tweet = search(word, api)
 #    if tweet:
 #        tweet = '“' + tweet + '”'
