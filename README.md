@@ -2,7 +2,7 @@
 
 A bot inspired by Emily Noyes Vanderpoel (1842-1939).
 
-Vanderpoel's 1902 work, <a href="https://archive.org/details/colorproblemspra00vand">Color Problems</a> presents an idiosyncratic and impenetrable theory of color that culminates in dozens of abstract grids proporting to describe physical objects.
+Vanderpoel's obscure 1902 work, <a href="https://archive.org/details/colorproblemspra00vand">Color Problems</a>, presents an idiosyncratic and impenetrable theory of color represented by dozens of abstract grids proporting to describe the color patterns of physical objects.
 
 This program generates grids that evoke Vanderpoel's work:
 
