@@ -14,6 +14,8 @@ This program generates grids that evoke Vanderpoel's work:
 * Assemble a grid proportional to the color representations in the original
 * Draw a table listing the color names and the number of matching tiles
 
+Bot is tweeting daily at https://twitter.com/emilyvanderbot
+
 ## Generated
 ![Page](images/wristwatch.jpg)
 ![Page](images/peas.jpg)
