@@ -153,8 +153,8 @@ def draw_card(grid_img, names):
     # Draw the header
     draw = ImageDraw.Draw(card)    
     header_font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
-    header_height = draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE",
-                                     width=CARD_WIDTH,
+    header_height = draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE OMG REALLY LONG",
+                                     width=CARD_WIDTH - CARD_MARGIN,
                                      ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
                                      fill=FONT_COLOR,
                                      font=header_font)
@@ -186,7 +186,7 @@ def draw_card(grid_img, names):
         # Now draw the ellipses starting from `width + margin` and ending at `card_width - width`
         char_padding = int(width / len(label))
         pos = TABLE_MARGIN + width + char_padding
-        end_pos =  CARD_WIDTH - TABLE_MARGIN - number_width - char_padding
+        end_pos =  CARD_WIDTH - TABLE_MARGIN - number_width - (char_padding * 2)
         ellipse = " . "
         ellipse_width = draw.textsize(ellipse, font=font)[0]
         while pos < end_pos:
