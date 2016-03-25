@@ -76,9 +76,9 @@ def kmeans(points, k, min_diff):
 
 def named_colorset(colorfile):
     """From a file, generate a set of named color objects"""
-    colorset = json.load(colorfile)
+    colorset = json.load(open(colorfile))
     for color in colorset['colors']:
         cobj = convert_color(sRGBColor.new_from_rgb_hex(color['hex']), LabColor)
         color['obj'] = cobj
-    return colorset
+    return colorset['colors']
 

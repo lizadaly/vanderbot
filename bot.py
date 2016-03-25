@@ -29,7 +29,8 @@ class Match(object):
        num_points: The number of points in the source image represented by this color 
        freq: The frequency of that color in the source image, as a percentage"""
     
-    def __init__(self, color_obj, num_points, freq=None):
+    def __init__(self, tile, color_obj, num_points, freq=None):
+        self.tile = tile
         self.color_obj = color_obj
         self.num_points = num_points
         self.freq = freq
@@ -110,10 +111,10 @@ def identify_colors(tile_dir, colors_to_match):
             if delta_e < best_match_value:
                 best_match_value = delta_e
                 best_match = c1
-        match = Match(color_obj=best_match, num_points=num_points, freq=None)
+        match = Match(tile=best_match, color_obj=color_map[best_match], num_points=num_points, freq=None)
         matches.append(match)
         del color_map[best_match]
-
+        
     return matches
 
 
@@ -141,7 +142,7 @@ def generate_tiles(allocations):
     tiles = []
     for index, al in enumerate(allocations):
         for _ in range(0, al):
-            tiles.append(matches[index].color_obj)
+            tiles.append(matches[index].tile)
 
     print("Created an array of {} tiles".format(len(tiles)))
     print(set(tiles))
@@ -165,7 +166,7 @@ def build_grid(matches, tiles):
     return grid_img
 
 
-def draw_card(grid_img, allocations):
+def draw_card(grid_img, names):
     """Draw the main card, paste on the grid, and set up the text"""
     card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(255,255,255))
 
@@ -178,19 +179,55 @@ def draw_card(grid_img, allocations):
     card.paste(grid_img, box=(0,0))
 
     # Draw the header
-    font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
-    draw = ImageDraw.Draw(card)
+    draw = ImageDraw.Draw(card)    
+    header_font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
+    header_height = draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE",
+                                     width=CARD_WIDTH,
+                                     ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
+                                     fill=FONT_COLOR,
+                                     font=header_font)
 
-    draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE",
-                     width=CARD_WIDTH,
-                     ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
-                     fill=(80, 80, 80),
-                     font=font)  
+    font = ImageFont.truetype('fonts/' + FONT, size=FONT_SIZE)
+    names.sort(key = lambda x: x[1])
+    names.reverse()
+    
+    for i, name in enumerate(names):
+        label = name[0]
+        number = str(name[1])
+        width, height = draw.textsize(label, font=font)
+        x = TABLE_MARGIN 
+        y = CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height)
+        draw.text((x, y), name[0], fill=FONT_COLOR, font=font)
+
+        # Now draw the related number, aligned right this time
+        number_width = draw.textsize(number, font=font)[0]
+        x = CARD_WIDTH - (TABLE_MARGIN) - number_width 
+        draw.text((x, y), str(name[1]), fill=FONT_COLOR, font=font)       
+        
     return card
 
-def generate_color_name_list(allocations, colorfile=COLORFILE):
+def generate_color_name_list(matches, colorfile=COLORFILE):
+
+    # Sort them by frequency (highest to lowest) so we allocate the "best" names to the
+    # most-represented colors
+    matches.sort(key = lambda x: x.freq)
+    matches.reverse()
     
-    print(colors)
+    matching_names = []
+    color_names = named_colorset(colorfile) 
+    for c1 in matches:
+        color = c1.color_obj
+        best_match = None
+        best_match_value = 1000.0
+        for c2 in color_names:
+            delta_e = delta_e_cie2000(c2['obj'], color)
+            if delta_e < best_match_value:
+                best_match_value = delta_e
+                best_match = c2
+        matching_names.append((best_match['color'], c1.freq))
+        color_names.remove(best_match)
+        
+    return matching_names
     
 if __name__ == '__main__':
     api = _auth()
@@ -204,13 +241,14 @@ if __name__ == '__main__':
     print("Found {} matches".format(len(matches)))
     
     allocations = allocate_colors(matches)
-    generate_color_name_list(allocations)
+
     
     tiles = generate_tiles(allocations)
     
     grid = build_grid(matches, tiles)
+    names = generate_color_name_list(matches)    
+    card = draw_card(grid, names)
     
-    card = draw_card(grid, allocations)
     card.show()
     
 #    tweet = search(word, api)

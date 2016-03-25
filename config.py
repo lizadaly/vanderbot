@@ -1,4 +1,5 @@
-CARD_MARGIN = 40
+CARD_MARGIN = 20
+TABLE_MARGIN = CARD_MARGIN * 8
 
 HEADER_FONT_SIZE = 20
 FONT_SIZE = 15
@@ -12,5 +13,5 @@ CARD_HEIGHT = 800
 TILE_WIDTH = 60
 
 FONT = 'lmroman10-regular.otf'
-
+FONT_COLOR = (80, 80, 80)
 COLORFILE = 'colornames.json'

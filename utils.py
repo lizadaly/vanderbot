@@ -34,10 +34,10 @@ def draw_word_wrap(draw, text,
 
 
 def draw_text_center(draw, text, width=800, ypos=0, fill=(0, 0, 0), font=None):
-    """Center text on the canvas"""
-    text_size_x, _ = draw.textsize(text, font=font)
+    """Center text on the canvas. Returns the yoffset that it drew"""
+    text_size_x, text_size_y = draw.textsize(text, font=font)
     draw.text(((width - text_size_x) / 2, ypos), text, fill=fill, font=font)
-
+    return text_size_y
 
 def rotate_randomly(im):
     return im.rotate(random.choice([0, 90, 180, 360]))    
