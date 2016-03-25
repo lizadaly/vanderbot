@@ -6,7 +6,7 @@ Vanderpoel's obscure 1902 work, <a href="https://archive.org/details/colorproble
 
 This program generates grids that evoke Vanderpoel's work:
 
-* Select a random keyword from a set of objects in <a href="https://github.com/dariusk/corpora">corpora</a>)
+* Select a random keyword from a set of objects in <a href="https://github.com/dariusk/corpora">corpora</a>
 * Find a related image from Flickr
 * Extra the dominant colors from that image
 * From a set of color tiles (hand-cut from the original work), find close match colors using a <a href="http://python-colormath.readthedocs.org/en/latest/delta_e.html">Delta E function</a>.
