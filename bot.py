@@ -9,7 +9,7 @@ import os.path
 import re
 import shutil
 import pprint
-from collections import namedtuple
+from collections import namedtuple, Counter
 
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
@@ -29,13 +29,19 @@ class Match(object):
        num_points: The number of points in the source image represented by this color 
        freq: The frequency of that color in the source image, as a percentage"""
     
-    def __init__(self, tile, color_obj, num_points, freq=None):
+    def __init__(self, tile, color_obj, num_points, freq=None, color_name=None):
         self.tile = tile
         self.color_obj = color_obj
         self.num_points = num_points
         self.freq = freq
-
+        self.color_name = color_name
         
+    def __str__(self):
+        return self.tile
+
+    def __repr__(self):
+        return self.__str__()
+
 def _auth():
     """Authorize the service with Twitter"""
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
@@ -92,31 +98,39 @@ def allocate_colors(matches):
     """For the array of matching colors, build a new array that represents their relative allocations.
     As a side effect, modifies `matches` to add the percentages to each color.
     """
-    allocations = []
-    
     # Allocate the colors by percentage to individual tiles
     total_points = sum([int(m.num_points) for m in matches])
 
     # Derive the percentage representation in the color set, throwing out any that are too rarely
     # represented to be displayable in our 10x10 grid
     for m in matches:
+        print("Total points {} / num points {} for {}".format(total_points, m.num_points, m.tile))
+        
         alloc = int(m.num_points / total_points * 100)
         m.freq = alloc 
-        if alloc > 0:
-            allocations.append(alloc)
+            
+    for m in matches[:]:
+        if m.freq == 0:
+            matches.remove(m)
 
-    return allocations
+    # Sometimes the sums don't total 100 because we dropped out low representation items, so add those back
+    sum_counts = sum(x.freq for x in matches)
+    remainder = 100 - sum_counts
+    matches.sort(key = lambda x: x.freq)
+    matches.reverse()
+    matches[-1].freq += remainder
+    return matches
 
 
-def generate_tiles(allocations):
+def generate_tiles(matches):
     # Now build a weighted list of tiles
     tiles = []
-    for index, al in enumerate(allocations):
-        for _ in range(0, al):
-            tiles.append(matches[index].tile)
+    for m in matches:
+        for _ in range(0, m.freq):
+            tiles.append(m.tile)
 
     print("Created an array of {} tiles".format(len(tiles)))
-    print(set(tiles))
+    print(Counter(tiles))
     
     return tiles
 
@@ -138,7 +152,7 @@ def build_grid(matches, tiles):
     return grid_img
 
 
-def draw_card(grid_img, names):
+def draw_card(grid_img, matches):
     """Draw the main card, paste on the grid, and set up the text"""
     card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(255,255,255))
 
@@ -161,27 +175,23 @@ def draw_card(grid_img, names):
 
     font = ImageFont.truetype('fonts/' + FONT, size=FONT_SIZE)
 
-    # Sometimes the sums don't total 100 because we dropped out low representation items, so add those back
-    sum_counts = sum(x[1] for x in names)
-    remainder = 100 - sum_counts
-    names[-1][1] += remainder
-
-    # Sort them in descending order by population
-    names.sort(key = lambda x: x[1])
-    names.reverse()
-
-    for i, name in enumerate(names):
-        label = name[0]
-        number = str(name[1])
+    # Sort them in descending order by population    
+    matches.sort(key = lambda x: x.freq)
+    matches.reverse()
+    
+    for i, match in enumerate(matches):
+        label = match.color_name
+        number = str(match.freq)
+        print("Drawing label {}:{}".format(label, number))
         width, height = draw.textsize(label, font=font)
         x = TABLE_MARGIN 
         y = (CARD_MARGIN * 2) + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height) 
-        draw.text((x, y), name[0], fill=FONT_COLOR, font=font)
+        draw.text((x, y), label, fill=FONT_COLOR, font=font)
 
         # Now draw the related number, aligned right this time
         number_width = draw.textsize(number, font=font)[0]
         x = CARD_WIDTH - (TABLE_MARGIN) - number_width 
-        draw.text((x, y), str(name[1]), fill=FONT_COLOR, font=font)
+        draw.text((x, y), str(number), fill=FONT_COLOR, font=font)
 
         # Now draw the ellipses starting from `width + margin` and ending at `card_width - width`
         char_padding = int(width / len(label))
@@ -216,10 +226,9 @@ def generate_color_name_list(matches, colorfile=COLORFILE):
     matches.sort(key = lambda x: x.freq)
     matches.reverse()
     
-    matching_names = []
     color_names = named_colorset(colorfile) 
-    for c1 in matches:
-        color = c1.color_obj
+    for match in matches:
+        color = match.color_obj
         best_match = None
         best_match_value = 1000.0
         for c2 in color_names:
@@ -227,10 +236,11 @@ def generate_color_name_list(matches, colorfile=COLORFILE):
             if delta_e < best_match_value:
                 best_match_value = delta_e
                 best_match = c2
-        matching_names.append([best_match['color'], c1.freq])
-        color_names.remove(best_match)
+        print("Think {} is the best name for {}".format(best_match['color'], match.tile))
+        match.color_name = best_match['color'] 
+        color_names.remove(best_match)        
         
-    return matching_names
+    return matches
 
 
 if __name__ == '__main__':
@@ -244,14 +254,13 @@ if __name__ == '__main__':
     matches = identify_colors('tiles', colors_lab)
     print("Found {} matches".format(len(matches)))
     
-    allocations = allocate_colors(matches)
-
+    matches = allocate_colors(matches)
     
-    tiles = generate_tiles(allocations)
+    tiles = generate_tiles(matches)
     
     grid = build_grid(matches, tiles)
-    names = generate_color_name_list(matches)    
-    card = draw_card(grid, names)
+    matches = generate_color_name_list(matches)    
+    card = draw_card(grid, matches)
     
     card.show()
     
