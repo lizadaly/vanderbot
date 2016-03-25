@@ -160,14 +160,16 @@ def draw_card(grid_img, names):
                                      font=header_font)
 
     font = ImageFont.truetype('fonts/' + FONT, size=FONT_SIZE)
-    names.sort(key = lambda x: x[1])
-    names.reverse()
 
     # Sometimes the sums don't total 100 because we dropped out low representation items, so add those back
     sum_counts = sum(x[1] for x in names)
     remainder = 100 - sum_counts
     names[-1][1] += remainder
-    
+
+    # Sort them in descending order by population
+    names.sort(key = lambda x: x[1])
+    names.reverse()
+
     for i, name in enumerate(names):
         label = name[0]
         number = str(name[1])
@@ -181,6 +183,15 @@ def draw_card(grid_img, names):
         x = CARD_WIDTH - (TABLE_MARGIN) - number_width 
         draw.text((x, y), str(name[1]), fill=FONT_COLOR, font=font)
 
+        # Now draw the elipses starting from `width + margin` and ending at `card_width - width`
+        pos = TABLE_MARGIN + width
+        end_pos =  CARD_WIDTH - TABLE_MARGIN - width
+        while pos < end_pos:
+            text = " . "
+            text_width = draw.textsize(text, font=font)
+            draw.text((pos, y), text, fill=FONT_COLOR, font=font)
+            pos += text_width
+            
     # For some reason she makes these sum to 100
     number = '__'
     number_width = draw.textsize(number, font=font)[0]
