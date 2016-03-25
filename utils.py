@@ -33,7 +33,7 @@ def draw_word_wrap(draw, text,
         ypos += text_size_y
     return ypost
 
-def draw_text_center(draw, text, width=800, ypos=0, fill=(0, 0, 0), font=None, callcount=1):
+def draw_text_center(draw, text, width=800, ypos=0, fill=(0, 0, 0), font=None):
     """Center text on the canvas. Returns the yoffset that it drew. If the text is too long to fit,
     cut it in half and call itself again."""
     # TODO make this recursive, right now it'll only cut the text in half once
@@ -42,14 +42,13 @@ def draw_text_center(draw, text, width=800, ypos=0, fill=(0, 0, 0), font=None, c
     if text_size_x > width:
         words = text.split(' ')
         next_text = ' '.join(words[int(len(words) / 2):])
-        text = ' '.join(words[0:int(len(words) /2)])
-        draw_text_center(draw, next_text, width, ypos=ypos + text_size_y, fill=fill, font=font)
-        callcount = 2
+        text = ' '.join(words[0:int(len(words) /2)]) + '\n' + next_text
+        
         
     # Run the text size calculation again in case we modified the string above
-    text_size_x, _ = draw.textsize(text, font=font)
-    draw.text(((width - text_size_x) / 2, ypos), text, fill=fill, font=font)
-    return text_size_y * callcount
+    text_size_x, text_size_y = draw.textsize(text, font=font)
+    draw.multiline_text(((width - text_size_x) / 2, ypos), text, fill=fill, font=font, align='center')
+    return text_size_y
 
 def rotate_randomly(im):
     return im.rotate(random.choice([0, 90, 180, 360]))    

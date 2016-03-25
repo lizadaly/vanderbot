@@ -178,12 +178,14 @@ def draw_card(grid_img, matches):
     # Sort them in descending order by population    
     matches.sort(key = lambda x: x.freq)
     matches.reverse()
-    
+
+    height = draw.textsize("Aygj", font=font)[1]  # Text with cap-height + descenders
     for i, match in enumerate(matches):
         label = match.color_name
         number = str(match.freq)
-        print("Drawing label {}:{}".format(label, number))
-        width, height = draw.textsize(label, font=font)
+        width, _ = draw.textsize(label, font=font)
+        print("Drawing label {}:{} with height {}".format(label, number, height))
+        
         x = TABLE_MARGIN 
         y = (CARD_MARGIN * 2) + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height) 
         draw.text((x, y), label, fill=FONT_COLOR, font=font)
