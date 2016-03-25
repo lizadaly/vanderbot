@@ -18,12 +18,13 @@ This program generates grids that evoke Vanderpoel's work:
 ![Page](images/example1.png)
 ![Page](images/example2.png)
 ![Page](images/example3.png)
+![Page](images/example4.png)
 
 ## Generated
-![Page](images/sandpaper.jpg)
-![Page](images/peas.jpg)
 ![Page](images/wristwatch.jpg)
-
+![Page](images/peas.jpg)
+![Page](images/paintbrush.jpg)
+![Page](images/sandpaper.jpg)
 
 ## License
 Copyright (c) 2016 Liza Daly  
