@@ -9,6 +9,9 @@ import os.path
 import re
 import shutil
 import pprint
+import flickrapi
+import requests
+from io import BytesIO
 from collections import namedtuple, Counter
 
 from colormath.color_objects import sRGBColor, LabColor
@@ -152,7 +155,7 @@ def build_grid(matches, tiles):
     return grid_img
 
 
-def draw_card(grid_img, matches):
+def draw_card(grid_img, matches, keyword):
     """Draw the main card, paste on the grid, and set up the text"""
     card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(255,255,255))
 
@@ -167,7 +170,7 @@ def draw_card(grid_img, matches):
     # Draw the header
     draw = ImageDraw.Draw(card)    
     header_font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
-    header_height = draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE OMG REALLY LONG",
+    header_height = draw_text_center(draw, text="COLOR ANALYSIS FROM " + keyword.upper(),
                                      width=CARD_WIDTH - CARD_MARGIN,
                                      ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
                                      fill=FONT_COLOR,
@@ -186,13 +189,13 @@ def draw_card(grid_img, matches):
         width, _ = draw.textsize(label, font=font)
         print("Drawing label {}:{} with height {}".format(label, number, height))
         
-        x = TABLE_MARGIN 
+        x = TABLE_MARGIN
         y = (CARD_MARGIN * 2) + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height) 
         draw.text((x, y), label, fill=FONT_COLOR, font=font)
 
         # Now draw the related number, aligned right this time
         number_width = draw.textsize(number, font=font)[0]
-        x = CARD_WIDTH - (TABLE_MARGIN) - number_width 
+        x = CARD_WIDTH - TABLE_MARGIN - number_width 
         draw.text((x, y), str(number), fill=FONT_COLOR, font=font)
 
         # Now draw the ellipses starting from `width + margin` and ending at `card_width - width`
@@ -244,11 +247,34 @@ def generate_color_name_list(matches, colorfile=COLORFILE):
         
     return matches
 
+def get_flickr_image_by_keyword(keyword):
+    """Given a keyword, search Flickr for it and return a slightly-random result as a file descriptor"""
+    print("Getting {} from Flickr".format(keyword))
+    flickr = flickrapi.FlickrAPI(FLICKR_KEY, FLICKR_SECRET, format='etree')
+    result = flickr.photos.search(per_page=100,
+                                  text=keyword,
+                                  tag_mode='any',
+                                  extras='url_o,url_l',
+                                  sort='relevance')
+    # Randomize the result set
+    img_url = None
+    photos = [p for p in result[0]]
+    while img_url is None and len(photos) > 0:
+        photo = photos[0]
+        img_url = photo.get('url_o') or photo.get('url_l')
+        photos.pop()
+    if not img_url:
+        raise Exception("Couldn't find a Flickr result for %s" % keyword)
+    print(img_url)
+    img_file = requests.get(img_url, stream=True)
+    return BytesIO(img_file.content)
 
 if __name__ == '__main__':
     api = _auth()
 
-    input_image = sys.argv[1]
+    #input_image = sys.argv[1]
+    keyword = random.choice(json.load(open('objects.json'))['objects'])
+    input_image = get_flickr_image_by_keyword(keyword)
     
     colors = colorz(input_image, n=NUM_COLORS_TO_MATCH)
     colors_lab = [(convert_color(sRGBColor(*c[0], is_upscaled=True), LabColor), c[1]) for c in colors]
@@ -262,7 +288,7 @@ if __name__ == '__main__':
     
     grid = build_grid(matches, tiles)
     matches = generate_color_name_list(matches)    
-    card = draw_card(grid, matches)
+    card = draw_card(grid, matches, keyword)
     
     card.show()
     

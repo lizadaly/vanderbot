@@ -31,7 +31,7 @@ def draw_word_wrap(draw, text,
     for text in output_text:
         draw.text((xpos, ypos), text, font=font, fill=fill)
         ypos += text_size_y
-    return ypost
+    return ypos
 
 def draw_text_center(draw, text, width=800, ypos=0, fill=(0, 0, 0), font=None):
     """Center text on the canvas. Returns the yoffset that it drew. If the text is too long to fit,
