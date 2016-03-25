@@ -21,10 +21,6 @@ from config import *
 from colors import *
 from utils import *
 
-GRID_WIDTH = 10
-GRID_HEIGHT = 10
-TILE_WIDTH = 60
-
 def _auth():
     """Authorize the service with Twitter"""
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
@@ -56,7 +52,7 @@ def generate_image(tweet, author):
     else:
         font_size = FONT_SIZE
 
-    font = ImageFont.truetype('fonts/' + random.choice(FONTS), size=font_size)
+    font = ImageFont.truetype('fonts/' + FONT, size=font_size)
     max_width = CARD_WIDTH / 1.8
     draw_word_wrap(draw, tweet,
                    max_width=max_width,
@@ -73,6 +69,7 @@ def generate_image(tweet, author):
                    fill=(255,255,153),
                    font=font)
     return card
+
 
 def build_color_map(tile_dir):
     color_map = {}
@@ -106,26 +103,40 @@ def identify_colors(tile_dir, colors_to_match):
 
     return matches
 
-def rotate_randomly(im):
-    return im.rotate(random.choice([0, 90, 180, 360]))    
+
+def allocate_colors(matches):
+    """For the array of matching colors, build a new array that represents their relative allocations."""
+    tiles = []
     
-def build_grid(matches):
-    """Build a 10x10 grid of the resulting colors"""
-    random.shuffle(matches)
+    # Allocate the colors by percentage to individual tiles
     total_points = sum([int(p[1]) for p in matches])
     allocations = []
+    
+    # Derive the percentage representation in the color set, throwing out any that are too rarely
+    # represented to be displayable in our 10x10 grid
     for m in matches:
         alloc = int(m[1] / total_points * 100)
         if alloc > 0:
             allocations.append(alloc)
-    print(allocations)
+
+    return allocations
+
+def generate_tiles(allocations):
+    # Now build a weighted list of tiles
     tiles = []
     for index, al in enumerate(allocations):
-        for i in range(0, al):
-#            print("Appending {} to tileset".format(matches[index][0]))
+        for _ in range(0, al):
             tiles.append(matches[index][0])
+
     print("Created an array of {} tiles".format(len(tiles)))
     print(set(tiles))
+    
+    return tiles
+
+def build_grid(matches, tiles):
+    """Build a 10x10 grid of the resulting colors"""
+
+    # Set up the grid
     grid_img = Image.new('RGB', (GRID_WIDTH * TILE_WIDTH, GRID_HEIGHT * TILE_WIDTH), color=(255,255,255))
     for row in range(0, GRID_WIDTH):
         for col in range(0, GRID_HEIGHT):
@@ -136,7 +147,31 @@ def build_grid(matches):
             if len(tiles) > 1:
                 tiles.pop()
     grid_img = rotate_randomly(grid_img)
-    grid_img.save('out.png')
+    return grid_img
+
+
+def draw_card(grid_img, allocations):
+    card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(255,255,255))
+
+    # Draw the background, randomly flipping it for recto/verso variety
+    bg = Image.open('images/bg.jpg')
+    bg = bg.rotate(random.choice([0, 180]))
+    card.paste(bg)
+
+    # Place the grid on the canvas
+    card.paste(grid_img, box=(0,0))
+
+    # Draw the header
+    font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
+    draw = ImageDraw.Draw(card)
+
+    
+    draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE",
+                     width=CARD_WIDTH,
+                     ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
+                     fill=(80, 80, 80),
+                     font=font)  
+    return card
     
 if __name__ == '__main__':
     api = _auth()
@@ -149,7 +184,13 @@ if __name__ == '__main__':
     matches = identify_colors('tiles', colors_lab)
     print("Found {} matches".format(len(matches)))
     
-    build_grid(matches)
+    allocations = allocate_colors(matches)
+    tiles = generate_tiles(allocations)
+    
+    grid = build_grid(matches, tiles)
+
+    card = draw_card(grid, allocations)
+    card.show()
     
 #    tweet = search(word, api)
 #    if tweet:

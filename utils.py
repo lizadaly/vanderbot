@@ -1,3 +1,5 @@
+import random
+
 def draw_word_wrap(draw, text,
                    xpos=0, ypos=0,
                    max_width=130,
@@ -29,3 +31,15 @@ def draw_word_wrap(draw, text,
     for text in output_text:
         draw.text((xpos, ypos), text, font=font, fill=fill)
         ypos += text_size_y
+
+
+def draw_text_center(draw, text, width=800, ypos=0, fill=(0, 0, 0), font=None):
+    """Center text on the canvas"""
+    text_size_x, _ = draw.textsize(text, font=font)
+    draw.text(((width - text_size_x) / 2, ypos), text, fill=fill, font=font)
+
+
+def rotate_randomly(im):
+    return im.rotate(random.choice([0, 90, 180, 360]))    
+    
+    
