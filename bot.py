@@ -1,18 +1,12 @@
-import urllib
-import pprint
 import json
 import random
-import sys
 import tweepy
 import tempfile
 import os.path
-import re
-import shutil
-import pprint
 import flickrapi
 import requests
 from io import BytesIO
-from collections import namedtuple, Counter
+import logging
 
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
@@ -25,6 +19,8 @@ from config import *
 
 from colors import *
 from utils import *
+
+logging.basicConfig()
 
 class Match(object):
     """A "matching" color from the source image. 
@@ -53,14 +49,13 @@ def _auth():
     return tweepy.API(auth)
 
 
-def post_tweet(tweet, card, author):
+def post_tweet(tweet, card):
     """Post to twitter with the given tweet and card image as attachment"""
-    byline = '—' + author['name']
     with tempfile.TemporaryFile() as fp:
         card.save(fp, format='PNG')
 
-        print("Posting message {}".format(tweet))
-        api.update_with_media('quote.png', status=tweet + byline, file=fp)
+        logging.info("Posting message {}".format(tweet))
+        api.update_with_media('image.png', status=tweet, file=fp)
 
 
 def build_color_map(tile_dir):
@@ -77,9 +72,9 @@ def build_color_map(tile_dir):
 
 def identify_colors(tile_dir, colors_to_match):
     matches = []
-    print("Building color map...")
+    logging.info("Building color map...")
     color_map = build_color_map(tile_dir)
-    print("Comparing {} color map values...".format(len(color_map)))
+    logging.info("Comparing {} color map values...".format(len(color_map)))
     for c2 in colors_to_match:
         color = c2[0]
         num_points = c2[1]
@@ -107,7 +102,7 @@ def allocate_colors(matches):
     # Derive the percentage representation in the color set, throwing out any that are too rarely
     # represented to be displayable in our 10x10 grid
     for m in matches:
-        print("Total points {} / num points {} for {}".format(total_points, m.num_points, m.tile))
+        logging.info("Total points {} / num points {} for {}".format(total_points, m.num_points, m.tile))
         
         alloc = int(m.num_points / total_points * 100)
         m.freq = alloc 
@@ -132,8 +127,7 @@ def generate_tiles(matches):
         for _ in range(0, m.freq):
             tiles.append(m.tile)
 
-    print("Created an array of {} tiles".format(len(tiles)))
-    print(Counter(tiles))
+    logging.info("Created an array of {} tiles".format(len(tiles)))
     
     return tiles
 
@@ -155,7 +149,7 @@ def build_grid(matches, tiles):
     return grid_img
 
 
-def draw_card(grid_img, matches, keyword):
+def draw_card(grid_img, matches, keyword_text):
     """Draw the main card, paste on the grid, and set up the text"""
     card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(255,255,255))
 
@@ -170,7 +164,7 @@ def draw_card(grid_img, matches, keyword):
     # Draw the header
     draw = ImageDraw.Draw(card)    
     header_font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
-    header_height = draw_text_center(draw, text="COLOR ANALYSIS FROM " + keyword.upper(),
+    header_height = draw_text_center(draw, text=keyword_text.upper(),
                                      width=CARD_WIDTH - CARD_MARGIN,
                                      ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
                                      fill=FONT_COLOR,
@@ -187,7 +181,7 @@ def draw_card(grid_img, matches, keyword):
         label = match.color_name
         number = str(match.freq)
         width, _ = draw.textsize(label, font=font)
-        print("Drawing label {}:{} with height {}".format(label, number, height))
+        logging.info("Drawing label {}:{} with height {}".format(label, number, height))
         
         x = TABLE_MARGIN
         y = (CARD_MARGIN * 2) + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height) 
@@ -241,7 +235,7 @@ def generate_color_name_list(matches, colorfile=COLORFILE):
             if delta_e < best_match_value:
                 best_match_value = delta_e
                 best_match = c2
-        print("Think {} is the best name for {}".format(best_match['color'], match.tile))
+        logging.info("Think {} is the best name for {}".format(best_match['color'], match.tile))
         match.color_name = best_match['color'] 
         color_names.remove(best_match)        
         
@@ -249,11 +243,13 @@ def generate_color_name_list(matches, colorfile=COLORFILE):
 
 def get_flickr_image_by_keyword(keyword):
     """Given a keyword, search Flickr for it and return a slightly-random result as a file descriptor"""
-    print("Getting {} from Flickr".format(keyword))
+    logging.info("Getting {} from Flickr".format(keyword))
     flickr = flickrapi.FlickrAPI(FLICKR_KEY, FLICKR_SECRET, format='etree')
     result = flickr.photos.search(per_page=100,
                                   text=keyword,
-                                  tag_mode='any',
+                                  tag_mode='all',
+                                  content_type=1,
+                                  tags=keyword,
                                   extras='url_o,url_l',
                                   sort='relevance')
     # Randomize the result set
@@ -265,7 +261,7 @@ def get_flickr_image_by_keyword(keyword):
         photos.pop()
     if not img_url:
         raise Exception("Couldn't find a Flickr result for %s" % keyword)
-    print(img_url)
+    logging.info(img_url)
     img_file = requests.get(img_url, stream=True)
     return BytesIO(img_file.content)
 
@@ -280,22 +276,16 @@ if __name__ == '__main__':
     colors_lab = [(convert_color(sRGBColor(*c[0], is_upscaled=True), LabColor), c[1]) for c in colors]
 
     matches = identify_colors('tiles', colors_lab)
-    print("Found {} matches".format(len(matches)))
+    logging.info("Found {} matches".format(len(matches)))
     
     matches = allocate_colors(matches)
     
     tiles = generate_tiles(matches)
     
     grid = build_grid(matches, tiles)
-    matches = generate_color_name_list(matches)    
-    card = draw_card(grid, matches, keyword)
+    matches = generate_color_name_list(matches)
+    keyword_text = "Color analysis from " + keyword
+    card = draw_card(grid, matches, keyword_text)
     
-    card.show()
-    
-#    tweet = search(word, api)
-#    if tweet:
-#        tweet = '“' + tweet + '”'
-#        author = random.choice(AUTHORS)
-#        card = generate_image(tweet, author)
-#        if card:
-#            post_tweet(tweet, card, author)
+    if card:
+        post_tweet(keyword_text, card)
