@@ -13,3 +13,4 @@ TILE_WIDTH = 60
 
 FONT = 'lmroman10-regular.otf'
 
+COLORFILE = 'colornames.json'

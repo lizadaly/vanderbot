@@ -9,6 +9,8 @@ import os.path
 import re
 import shutil
 import pprint
+from collections import namedtuple
+
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from colormath.color_diff import delta_e_cie2000
@@ -20,6 +22,17 @@ from config import *
 
 from colors import *
 from utils import *
+
+class Match(object):
+    """A "matching" color from the source image. 
+       color_obj: An instance of colormath.color_objects.LabColor suitable for color math
+       num_points: The number of points in the source image represented by this color 
+       freq: The frequency of that color in the source image, as a percentage"""
+    
+    def __init__(self, color_obj, num_points, freq=None):
+        self.color_obj = color_obj
+        self.num_points = num_points
+        self.freq = freq
 
 def _auth():
     """Authorize the service with Twitter"""
@@ -89,7 +102,7 @@ def identify_colors(tile_dir, colors_to_match):
     print("Comparing {} color map values...".format(len(color_map)))
     for c2 in colors_to_match:
         color = c2[0]
-        freq = c2[1]
+        num_points = c2[1]
         best_match = None
         best_match_value = 1000.0
         for c1 in color_map:
@@ -97,25 +110,27 @@ def identify_colors(tile_dir, colors_to_match):
             if delta_e < best_match_value:
                 best_match_value = delta_e
                 best_match = c1
-        matches.append((best_match, freq))
+        match = Match(color_obj=best_match, num_points=num_points, freq=None)
+        matches.append(match)
         del color_map[best_match]
-
 
     return matches
 
 
 def allocate_colors(matches):
-    """For the array of matching colors, build a new array that represents their relative allocations."""
-    tiles = []
-    
-    # Allocate the colors by percentage to individual tiles
-    total_points = sum([int(p[1]) for p in matches])
+    """For the array of matching colors, build a new array that represents their relative allocations.
+    As a side effect, modifies `matches` to add the percentages to each color.
+    """
     allocations = []
     
+    # Allocate the colors by percentage to individual tiles
+    total_points = sum([int(m.num_points) for m in matches])
+
     # Derive the percentage representation in the color set, throwing out any that are too rarely
     # represented to be displayable in our 10x10 grid
     for m in matches:
-        alloc = int(m[1] / total_points * 100)
+        alloc = int(m.num_points / total_points * 100)
+        m.freq = alloc 
         if alloc > 0:
             allocations.append(alloc)
 
@@ -126,7 +141,7 @@ def generate_tiles(allocations):
     tiles = []
     for index, al in enumerate(allocations):
         for _ in range(0, al):
-            tiles.append(matches[index][0])
+            tiles.append(matches[index].color_obj)
 
     print("Created an array of {} tiles".format(len(tiles)))
     print(set(tiles))
@@ -134,7 +149,7 @@ def generate_tiles(allocations):
     return tiles
 
 def build_grid(matches, tiles):
-    """Build a 10x10 grid of the resulting colors"""
+    """Build a 10x10 grid of the resulting colors; returns a canvas object with the images laid out"""
 
     # Set up the grid
     grid_img = Image.new('RGB', (GRID_WIDTH * TILE_WIDTH, GRID_HEIGHT * TILE_WIDTH), color=(255,255,255))
@@ -151,6 +166,7 @@ def build_grid(matches, tiles):
 
 
 def draw_card(grid_img, allocations):
+    """Draw the main card, paste on the grid, and set up the text"""
     card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(255,255,255))
 
     # Draw the background, randomly flipping it for recto/verso variety
@@ -165,13 +181,16 @@ def draw_card(grid_img, allocations):
     font = ImageFont.truetype('fonts/' + FONT, size=HEADER_FONT_SIZE)
     draw = ImageDraw.Draw(card)
 
-    
     draw_text_center(draw, text="COLOR ANALYSIS FROM JAPANESE BROCADE",
                      width=CARD_WIDTH,
                      ypos=CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH),
                      fill=(80, 80, 80),
                      font=font)  
     return card
+
+def generate_color_name_list(allocations, colorfile=COLORFILE):
+    
+    print(colors)
     
 if __name__ == '__main__':
     api = _auth()
@@ -185,10 +204,12 @@ if __name__ == '__main__':
     print("Found {} matches".format(len(matches)))
     
     allocations = allocate_colors(matches)
+    generate_color_name_list(allocations)
+    
     tiles = generate_tiles(allocations)
     
     grid = build_grid(matches, tiles)
-
+    
     card = draw_card(grid, allocations)
     card.show()
     
