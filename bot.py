@@ -35,12 +35,14 @@ class Match(object):
         self.num_points = num_points
         self.freq = freq
 
+        
 def _auth():
     """Authorize the service with Twitter"""
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.secure = True
     auth.set_access_token(access_token, access_token_secret)
     return tweepy.API(auth)
+
 
 def post_tweet(tweet, card, author):
     """Post to twitter with the given tweet and card image as attachment"""
@@ -50,39 +52,6 @@ def post_tweet(tweet, card, author):
 
         print("Posting message {}".format(tweet))
         api.update_with_media('quote.png', status=tweet + byline, file=fp)
-
-def generate_image(tweet, author):
-    """Given a tweet and a random author, generate a new twitter card"""
-    im = Image.open('images/' + random.choice(author['images']))
-    card = Image.new('RGB', (CARD_WIDTH, CARD_HEIGHT), color=(0,0,0))
-    card.paste(im, (card.width - im.width, 0))
-    draw = ImageDraw.Draw(card)
-
-    # Take the base font size and make it smaller for larger tweets
-    if len(tweet) < 20:
-        font_size = int(FONT_SIZE * 1.25)
-    elif len(tweet) > 200:
-        font_size = int(FONT_SIZE * .75)
-    else:
-        font_size = FONT_SIZE
-
-    font = ImageFont.truetype('fonts/' + FONT, size=font_size)
-    max_width = CARD_WIDTH / 1.8
-    draw_word_wrap(draw, tweet,
-                   max_width=max_width,
-                   xpos=CARD_MARGIN,
-                   ypos=CARD_MARGIN,
-                   fill=(255, 255, 255),
-                   font=font)
-
-    byline = '—' + author['name']
-    draw_word_wrap(draw, byline,
-                   max_width=CARD_WIDTH,
-                   xpos=CARD_MARGIN,
-                   ypos=CARD_HEIGHT - CARD_MARGIN - font.getsize("a")[1],
-                   fill=(255,255,153),
-                   font=font)
-    return card
 
 
 def build_color_map(tile_dir):
@@ -95,6 +64,7 @@ def build_color_map(tile_dir):
             lab_c = convert_color(c, LabColor)
             color_map[_file] = lab_c
     return color_map
+
 
 def identify_colors(tile_dir, colors_to_match):
     matches = []
@@ -137,6 +107,7 @@ def allocate_colors(matches):
 
     return allocations
 
+
 def generate_tiles(allocations):
     # Now build a weighted list of tiles
     tiles = []
@@ -148,6 +119,7 @@ def generate_tiles(allocations):
     print(set(tiles))
     
     return tiles
+
 
 def build_grid(matches, tiles):
     """Build a 10x10 grid of the resulting colors; returns a canvas object with the images laid out"""
@@ -190,21 +162,39 @@ def draw_card(grid_img, names):
     font = ImageFont.truetype('fonts/' + FONT, size=FONT_SIZE)
     names.sort(key = lambda x: x[1])
     names.reverse()
+
+    # Sometimes the sums don't total 100 because we dropped out low representation items, so add those back
+    sum_counts = sum(x[1] for x in names)
+    remainder = 100 - sum_counts
+    names[-1][1] += remainder
     
     for i, name in enumerate(names):
         label = name[0]
         number = str(name[1])
         width, height = draw.textsize(label, font=font)
         x = TABLE_MARGIN 
-        y = CARD_MARGIN + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height)
+        y = (CARD_MARGIN * 2) + (GRID_HEIGHT * TILE_WIDTH) + header_height + (i * height) 
         draw.text((x, y), name[0], fill=FONT_COLOR, font=font)
 
         # Now draw the related number, aligned right this time
         number_width = draw.textsize(number, font=font)[0]
         x = CARD_WIDTH - (TABLE_MARGIN) - number_width 
-        draw.text((x, y), str(name[1]), fill=FONT_COLOR, font=font)       
-        
+        draw.text((x, y), str(name[1]), fill=FONT_COLOR, font=font)
+
+    # For some reason she makes these sum to 100
+    number = '__'
+    number_width = draw.textsize(number, font=font)[0]
+    x = CARD_WIDTH - (TABLE_MARGIN) - number_width
+    y += height
+    y = y - (height / 2)
+    draw.text((x, y), number, fill=FONT_COLOR, font=font)    
+
+    number = '100'
+    number_width = draw.textsize(number, font=font)[0]
+    y += height 
+    draw.text((x, y), number, fill=FONT_COLOR, font=font)        
     return card
+
 
 def generate_color_name_list(matches, colorfile=COLORFILE):
 
@@ -224,17 +214,18 @@ def generate_color_name_list(matches, colorfile=COLORFILE):
             if delta_e < best_match_value:
                 best_match_value = delta_e
                 best_match = c2
-        matching_names.append((best_match['color'], c1.freq))
+        matching_names.append([best_match['color'], c1.freq])
         color_names.remove(best_match)
         
     return matching_names
-    
+
+
 if __name__ == '__main__':
     api = _auth()
 
     input_image = sys.argv[1]
     
-    colors = colorz(input_image, n=5)
+    colors = colorz(input_image, n=NUM_COLORS_TO_MATCH)
     colors_lab = [(convert_color(sRGBColor(*c[0], is_upscaled=True), LabColor), c[1]) for c in colors]
 
     matches = identify_colors('tiles', colors_lab)
