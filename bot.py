@@ -183,14 +183,16 @@ def draw_card(grid_img, names):
         x = CARD_WIDTH - (TABLE_MARGIN) - number_width 
         draw.text((x, y), str(name[1]), fill=FONT_COLOR, font=font)
 
-        # Now draw the elipses starting from `width + margin` and ending at `card_width - width`
-        pos = TABLE_MARGIN + width
-        end_pos =  CARD_WIDTH - TABLE_MARGIN - width
+        # Now draw the ellipses starting from `width + margin` and ending at `card_width - width`
+        char_padding = int(width / len(label))
+        pos = TABLE_MARGIN + width + char_padding
+        end_pos =  CARD_WIDTH - TABLE_MARGIN - number_width - char_padding
+        ellipse = " . "
+        ellipse_width = draw.textsize(ellipse, font=font)[0]
         while pos < end_pos:
-            text = " . "
-            text_width = draw.textsize(text, font=font)
-            draw.text((pos, y), text, fill=FONT_COLOR, font=font)
-            pos += text_width
+            pos = int(10 * round(float(pos) / 10))  # Round to the nearest nth pixel
+            draw.text((pos, y), ellipse, fill=FONT_COLOR, font=font)
+            pos += ellipse_width
             
     # For some reason she makes these sum to 100
     number = '__'

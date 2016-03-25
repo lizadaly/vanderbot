@@ -1,5 +1,5 @@
 CARD_MARGIN = 20
-TABLE_MARGIN = CARD_MARGIN * 8
+TABLE_MARGIN = CARD_MARGIN * 4
 
 HEADER_FONT_SIZE = 20
 FONT_SIZE = 15
@@ -16,5 +16,5 @@ FONT = 'lmroman10-regular.otf'
 FONT_COLOR = (80, 80, 80)
 COLORFILE = 'colornames.json'
 
-NUM_COLORS_TO_MATCH = 4  # In practice this usually results in n-1 colors because of scaling
+NUM_COLORS_TO_MATCH = 4  # In practice this usually results in n-1 colors because of scalingo
 
