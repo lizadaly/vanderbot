@@ -1,6 +1,6 @@
 {
-    description: "List of household objects",
-    objects: [
+    "description": "List of household objects",
+    "objects": [
 	"CD",
 	"Christmas ornament",
 	"acorn",
