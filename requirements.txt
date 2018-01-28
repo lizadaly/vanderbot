@@ -3,3 +3,4 @@ tweepy
 Pillow
 colormath
 flickrapi
+wheel
